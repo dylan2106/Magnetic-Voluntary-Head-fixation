@@ -12,7 +12,7 @@ The file to open in inventor is "Assembly2.iam"
 
 files were created in inventor 2019
 
-### notes
+### Notes on particualr parts
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/36ab8361-1aae-482c-af4e-5b6164b956f8)
 
