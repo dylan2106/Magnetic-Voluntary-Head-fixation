@@ -1,0 +1,2 @@
+-make trial(1).lookUpData into a class which is easier to index
+-have some parameters be session fixed
