@@ -12,13 +12,15 @@ The file to open in inventor is "Assembly2.iam"
 
 files were created in inventor 2019
 
-### Notes on particualr parts
+### Notes on particular parts
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/36ab8361-1aae-482c-af4e-5b6164b956f8)
 
 objective protector - has been designed with the CA1 imageing canula geometry and 0.6NA objective in mind
 assembly is done by soldering the brass together and carefully grinding away the excess
 
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/f0c7d319-b50b-452f-a495-a4563774ce9b)
+headplate - a small actylic window may be cut using a laser cutter to serve as a dust cover for the headplate
 
 ## overal system archetecture 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/33ad1812-8463-475b-b5b9-7994f1115b91)
