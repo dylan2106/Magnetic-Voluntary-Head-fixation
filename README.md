@@ -55,7 +55,7 @@ a small actylic window may be cut using a laser cutter to serve as a dust cover 
 this directory contains the firmeware for the arduino running the bearing detection circuit
 electronics\tri_mount_adj_2
 
-this device sences the bearing balls in teh kinematic bearings and sends the appropriate output as BNCs TTL that are routed to the scanimage control system and the behaviural control 
+this device sences the bearing balls in the kinematic bearings and sends the appropriate output as BNCs TTL that are routed to the scanimage control system and the behaviural control 
 
 ### **odor_behavioural_control**
 this directory contians teh firmware for the arduino mega operating as the mega_base_station.
