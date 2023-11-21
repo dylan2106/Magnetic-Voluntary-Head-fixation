@@ -14,7 +14,8 @@ files were created in inventor 2019
 
 ### notes
 objective
-![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/54bbe854-57ff-482f-8d73-2cc656486dd3  {width=50% height=50%})
+
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/54bbe854-57ff-482f-8d73-2cc656486dd3 "objective protector" {width=50% height=50%})
 
 ## overal system archetecture 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/d0f58a2e-26c2-42af-8e2f-d8b08a869202)
