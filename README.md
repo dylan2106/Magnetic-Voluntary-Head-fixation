@@ -13,8 +13,7 @@ The file to open in inventor is "Assembly2.iam"
 files were created in inventor 2019
 
 ### notes
-objective protector
-![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/5671cba4-69e0-4268-945d-136ee6936add "objective protector")
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/5671cba4-69e0-4268-945d-136ee6936add "objective protector" {width=50% height=50%})
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/54bbe854-57ff-482f-8d73-2cc656486dd3 "objective protector" {width=50% height=50%})
 
