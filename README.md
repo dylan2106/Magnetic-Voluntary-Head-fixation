@@ -34,13 +34,17 @@ assembly is done by soldering the brass together and carefully grinding away the
 
 
 ## software
-### \bearing_switch
+### ** \bearing_switch**
 this directory contains the firmeware for the arduino running the bearing detection circuit
 electronics\tri_mount_adj_2
 
 this device sences the bearing balls in teh kinematic bearings and sends the appropriate output as BNCs TTL that are routed to the scanimage control system and the behaviural control 
 
-### \pc_software
+### **odor_behavioural_control**
+this directory contians teh firmware for the arduino mega operating as the mega_base_station.
+This device converts information from its GPIO pins to packetised serial messages which are sent to the PC.
+
+### **\pc_software**
 this directory runs the PC code for the flow control of training of voluntary head fixation and some behavioural experiments.
 
 it runs in MATLAB
