@@ -32,6 +32,10 @@ a small actylic window may be cut using a laser cutter to serve as a dust cover 
 
 **v2_nose_poke** - This part may have a stainless steel tube pressfit into the indicated hole. This mainly serves as a fitting for flexible tubing for reward delivery as it pertrudes a small amount on the rear.
 
+**spacer_block** - is made of delrin and can be fixed in place with strong double sided tape. They allow the headplate to smoothly slide up to the bearings.
+**ramp** - is a tiny piece of acrylic that is sanded down into this shape an attached with double-sided tape. It helps the headplate to slide into the bearings.
+
+
 ## overal system archetecture 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/1f5b32b2-6c0d-49c7-963d-a736d4f2c671)
 
