@@ -15,9 +15,10 @@ files were created in inventor 2019
 ### notes
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/36ab8361-1aae-482c-af4e-5b6164b956f8)
-objective protector
-has been designed with the CA1 imageing canula geometry and 0.6NA objective in mind
+
+objective protector - has been designed with the CA1 imageing canula geometry and 0.6NA objective in mind
 assembly is done by soldering the brass together and carefully grinding away the excess
+
 
 ## overal system archetecture 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/d0f58a2e-26c2-42af-8e2f-d8b08a869202)
