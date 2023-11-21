@@ -23,6 +23,11 @@ assembly is done by soldering the brass together and carefully grinding away the
 
 **headplate** - a small actylic window may be cut using a laser cutter to serve as a dust cover for the headplate
 
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/1bfc125c-51f3-4223-a08c-4c0060045553)
+
+**v2_front_mount_2**  - highlighted hole allows electrical wires from bearing balls embedded in v2_bearing_insert_thick_three_point to exit
+
+
 ## overal system archetecture 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/33ad1812-8463-475b-b5b9-7994f1115b91)
 
