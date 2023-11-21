@@ -28,6 +28,9 @@ a small actylic window may be cut using a laser cutter to serve as a dust cover 
 
 **v2_front_mount_2**  - highlighted hole allows electrical wires from bearing balls embedded in v2_bearing_insert_thick_three_point to exit
 
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/f35ec47f-e89c-4e89-8f64-92ace5940573)
+
+**v2_nose_poke** - This part may have a stainless steel tube pressfit into the indicated hole. This mainly serves as a fitting for flexible tubing for reward delivery as it pertrudes a small amount on the rear.
 
 ## overal system archetecture 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/1f5b32b2-6c0d-49c7-963d-a736d4f2c671)
@@ -60,5 +63,6 @@ pFSM_train_poke.m - is the main program that will train the animal to achieve vo
 coantains the schematics for two PCBs
 
 **tri_mount_adj_2_to_fab** - directly plugs into an arduino is loaded with \bearing_switch.ino
+
 **mega_base_station_v2_to_fab** - directly plugs into an arduino mega, and is used to interface the matlab PC with the bearing_switch as well as otehr bbeavioural systems such as nose pokes
 
