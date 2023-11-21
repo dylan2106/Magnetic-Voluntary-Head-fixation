@@ -29,12 +29,13 @@ assembly is done by soldering the brass together and carefully grinding away the
 
 
 ## overal system archetecture 
-![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/33ad1812-8463-475b-b5b9-7994f1115b91)
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/1f5b32b2-6c0d-49c7-963d-a736d4f2c671)
+
 
 
 
 ## software
-### ** \bearing_switch**
+### **\bearing_switch**
 this directory contains the firmeware for the arduino running the bearing detection circuit
 electronics\tri_mount_adj_2
 
@@ -57,7 +58,6 @@ pFSM_train_poke.m - is the main program that will train the animal to achieve vo
 ## electronics
 coantains the schematics for two PCBs
 
-tri_mount_adj_2_to_fab - directly plugs into an arduino is loaded with \bearing_switch.ino
-
-mega_base_station_v2_to_fab - directly plugs into an arduino mega, and is used to interface the matlab PC with the bearing_switch as well as otehr bbeavioural systems such as nose pokes
+**tri_mount_adj_2_to_fab** - directly plugs into an arduino is loaded with \bearing_switch.ino
+**mega_base_station_v2_to_fab** - directly plugs into an arduino mega, and is used to interface the matlab PC with the bearing_switch as well as otehr bbeavioural systems such as nose pokes
 
