@@ -28,7 +28,7 @@ a small actylic window may be cut using a laser cutter to serve as a dust cover 
 
 **v2_front_mount_2**  - highlighted hole allows electrical wires from bearing balls embedded in v2_bearing_insert_thick_three_point to exit
 
-![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/99bf6174-27ab-4258-bf97-65dc8a3e04d7)
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/671f17f4-50b7-465b-9bb6-dd849449d284)
 
 **magnet_assembly** 
 
