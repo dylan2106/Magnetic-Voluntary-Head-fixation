@@ -29,5 +29,15 @@ the sub programs that are loaded via teh GUI are prefaced "pFSM"
 
 pFSM_train_poke.m - is the main program that will train the animal to achieve voluntary head fixation
 
+## electronics
+coantains the schematics for two PCBs
+
+tri_mount_adj_2_to_fab - directly plugs into an arduino is loaded with \bearing_switch.ino
+
+mega_base_station_v2_to_fab - directly plugs into an arduino mega, and is used to interface the matlab PC with the bearing_switch as well as otehr bbeavioural systems such as nose pokes
+
+## overal system archetecture 
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/d0f58a2e-26c2-42af-8e2f-d8b08a869202)
+
 
 
