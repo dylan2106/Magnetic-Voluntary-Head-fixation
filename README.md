@@ -15,14 +15,17 @@ files were created in inventor 2019
 ### Notes on particular parts
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/36ab8361-1aae-482c-af4e-5b6164b956f8)
+
 **objective protector** - has been designed with the CA1 imaging canula geometry and 0.6NA objective in mind.
 Assembly is done by soldering the brass together and carefully grinding away the excess solder. The brass pieces will have to be pre bend to allow teh shape to be assembled.
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/ca3e127a-8082-4647-92b7-6ec6356e679e)
+
 **headplate** - Head-plate is constructed out of titanium. The bearing balls are fixed to the headplate first with a bead of conductive paint, and then with metabond. Metabond is used since any other glue will be nibbled off by cagemates.
 a small actylic window may be cut using a laser cutter to serve as a dust cover for the headplate. An appropriately sized O-ring can serve as a gasket to prevent any dust or beeding getting in the window.
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/4f789866-29d5-4180-a787-59bca49c8d7d)
+
 **v2_front_mount_2**  - highlighted hole allows electrical wires from bearing balls embedded in v2_bearing_insert_thick_three_point to exit
 
 
