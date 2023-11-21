@@ -21,7 +21,8 @@ assembly is done by soldering the brass together and carefully grinding away the
 
 
 ## overal system archetecture 
-![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/d0f58a2e-26c2-42af-8e2f-d8b08a869202)
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/33ad1812-8463-475b-b5b9-7994f1115b91)
+
 
 
 ## software
