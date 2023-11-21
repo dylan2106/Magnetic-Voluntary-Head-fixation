@@ -16,11 +16,12 @@ files were created in inventor 2019
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/36ab8361-1aae-482c-af4e-5b6164b956f8)
 
-objective protector - has been designed with the CA1 imageing canula geometry and 0.6NA objective in mind
+**objective protector** - has been designed with the CA1 imageing canula geometry and 0.6NA objective in mind
 assembly is done by soldering the brass together and carefully grinding away the excess
 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/ca3e127a-8082-4647-92b7-6ec6356e679e)
-headplate - a small actylic window may be cut using a laser cutter to serve as a dust cover for the headplate
+
+**headplate** - a small actylic window may be cut using a laser cutter to serve as a dust cover for the headplate
 
 ## overal system archetecture 
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/33ad1812-8463-475b-b5b9-7994f1115b91)
