@@ -51,7 +51,7 @@ a small actylic window may be cut using a laser cutter to serve as a dust cover 
 
 
 ## software
-### **\bearing_switch**
+### **bearing_switch**
 this directory contains the firmeware for the arduino running the bearing detection circuit
 electronics\tri_mount_adj_2
 
@@ -61,7 +61,7 @@ this device sences the bearing balls in teh kinematic bearings and sends the app
 this directory contians teh firmware for the arduino mega operating as the mega_base_station.
 This device converts information from its GPIO pins to packetised serial messages which are sent to the PC.
 
-### **\pc_software**
+### **pc_software**
 this directory runs the PC code for the flow control of training of voluntary head fixation and some behavioural experiments.
 
 it runs in MATLAB
