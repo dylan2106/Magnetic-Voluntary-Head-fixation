@@ -32,6 +32,10 @@ a small actylic window may be cut using a laser cutter to serve as a dust cover 
 
 **magnet_assembly** 
 
+![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/9a6585e9-3eea-4218-ba29-4297e7c9d233)
+
+**v2_bearing_insert_thick_parallel_REF**
+
 ![image](https://github.com/dylan2106/Magnetic-Voluntary-Head-fixation/assets/22946450/f35ec47f-e89c-4e89-8f64-92ace5940573)
 
 **v2_nose_poke** - This part may have a stainless steel tube pressfit into the indicated hole. This mainly serves as a fitting for flexible tubing for reward delivery as it pertrudes a small amount on the rear.
