@@ -31,6 +31,3 @@ pFSM_train_poke.m - is the main program that will train the animal to achieve vo
 
 
 
-
-
-# magnetic_head_fixation
