@@ -8,8 +8,9 @@ Rich, P. D., et al., . “Magnetic Voluntary Head-Fixation in Transgenic Rats En
 
 ## fixation_hardware
 This directory is the pack-and-go CAD directory for the main fixation hardware.
-The file to open in inventor is "Assembly2.iam" 
 
+**The file to open in inventor is "Assembly2.iam" 
+**
 files were created in inventor 2019
 
 ### Notes on particular parts
