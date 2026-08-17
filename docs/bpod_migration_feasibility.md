@@ -1,267 +1,240 @@
-# Feasibility report: migrating experimental control to Bpod
+# Feasibility: migrating experimental control to Bpod
 
-**Date:** 2026-06-11
-**Scope:** Whether to move the magnetic voluntary head-fixation / NAFC behavioral
-control off the current custom MATLAB + Arduino base-station system and onto
-[Bpod](https://sanworks.github.io/Bpod_Wiki/) (Sanworks).
-**Stated goals:** buy hardware rather than design/assemble it; better real-time
-control; a parallelizable system of ~10 cages running together, semi-automated.
-
----
-
-## 1. TL;DR / recommendation
-
-**Bpod is a good architectural fit and directly addresses your two main pain
-points (real-time timing and buy-don't-build). The migration is feasible but is
-a multi-month software port, not a drop-in swap. The intellectually hard part of
-your code — the cross-trial sequencing/debiasing logic — ports over almost
-unchanged. The part that needs real rework is the *within-trial* logic, because
-today you lean on running arbitrary MATLAB in the middle of a trial, and Bpod
-deliberately does not let you do that.**
-
-The biggest single insight: **your current system already has Bpod's exact
-architecture** — a finite state machine per trial, plus PC-side MATLAB that
-decides the next trial. The only structural difference is *where the
-within-trial FSM executes*. Today it runs in MATLAB (`pdispatch.m` →
-`pFSM_*.m`), clocked by MATLAB `timer` objects and gated by USB-serial
-round-trips. On Bpod it runs on a microcontroller at a 100 µs refresh, which is
-the real-time upgrade you're after.
-
-Recommended path: **pilot one rig** (port `pFSM_train_poke` or
-`pFSM_passive_fixation` first, since they are the simplest and exercise the
-head-fixation detection + odor timing), validate the bearing-contact detection
-and odor latency on real hardware, then decide whether to commit to all 10.
+**Scope:** move the magnetic voluntary head-fixation / NAFC control off the
+current custom MATLAB + Arduino base-station system onto
+[Bpod](https://sanworks.github.io/Bpod_Wiki/).
+**Goals:** buy rather than build hardware; better real-time control; ~10 cages
+running in parallel, semi-automated.
 
 ---
 
-## 2. How your current system works (as built)
+## 1. Bottom line
 
-Reading the codebase, the architecture is:
+Bpod is a good fit and hits both main goals (real-time timing, buy-not-build).
+It's a **multi-month software port, not a drop-in swap**.
 
-- **`controllerGUI.m`** (1166 lines) — the MATLAB GUI and event loop.
-- **`pprocessInput.m`** — serial callback: reads ASCII packets from the Arduino
-  Mega "mega_base_station", strips line endings, hands them to the dispatcher.
-- **`pdispatch.m`** — the central dispatcher. Every event (`IRB` beam break,
-  `GPIO` change, confirmations, query replies `IRQ`/`GPQ`) updates the GUI and is
-  then forwarded to the currently-loaded task: `handles.user.currProg(event,
-  handles)`.
-- **`pFSM_*.m`** — each task is one big function `(event, handles)`. The current
-  state is a *string* in `handles.user.program.state`; entering a state is
-  signalled by an empty `event`. `moveto.m` changes the state string and
-  re-invokes the task. Trial memory/history lives in
-  `handles.user.program.trial(nTrial)`.
-- **Timing** is done with MATLAB `timer` objects — `startTup.m` arms a "time-up"
-  (`TUP`) timer; `pFSMSub_volHead.m` arms randomized reward intervals with
-  `@()exprnd(3)+1`, etc.
-- **Hardware abstraction** is a custom comma-separated serial protocol:
-  `psendPacket.m` sends strings like `GPO,9,0` (set GPIO/door), `TON,40,1,1,1`
-  (tone), `MOD,1,1,-70` (sound-module volume/sample-rate), `OLF,1,1`
-  (olfactometer), `LED,...`, `REW,...`, `SYN,...`. A custom PCB
-  (`mega_base_station`) translates GPIO ↔ packets; a second Arduino
-  (`bearing_switch`) senses the kinematic-bearing contacts and emits TTL.
+The key insight: **your system already has Bpod's architecture** — a per-trial
+finite state machine plus PC-side MATLAB that computes the next trial. The only
+structural difference is *where the within-trial FSM runs*. Today it runs in
+MATLAB (`pdispatch.m` → `pFSM_*.m`), clocked by MATLAB `timer` objects and gated
+by serial round-trips. On Bpod it runs on a microcontroller at a **100 µs
+refresh** (firmware `timerPeriod = 100`), deterministic and PC-independent — the
+real-time upgrade you want.
 
-What makes your system more than a "plain FSM," and why you (correctly) feel
-plain FSMs are limiting:
+Consequently: your **cross-trial logic ports almost unchanged**; the
+**within-trial FSM is a mechanical rewrite**; and the one genuine adjustment is
+that you can no longer run arbitrary MATLAB *mid-trial* (see §3).
 
-1. **Cross-trial adaptivity.** `choose_next_goal` in `pFSM_NAFC.m` implements
-   `randProb`, `debias2target`, `adverHistory` (adversarial, via the ~550-line
-   `binomialPrediction.m`), `alternation`, pseudo-random blocks, repeat-on-error,
-   and route-bias scheduling. This is real computation over the full trial
-   history.
-2. **Mid-trial MATLAB.** Inside a trial you query live input state
-   (`IRQ`/`GPQ`), branch on the olfactometer object's `status`
-   (`preOdor`/`odor`/`flush`), draw random hold intervals on the fly, and adjust
-   sound-module parameters per state.
-
-Item (1) is exactly what Bpod expects you to do. Item (2) is the part that
-collides with Bpod's design.
+**Recommended path:** pilot one rig (port `pFSM_train_poke` or
+`pFSM_passive_fixation`), validate bearing detection + odor timing on real
+hardware, then decide on all 10.
 
 ---
 
-## 3. How Bpod works (from the source you already cloned)
+## 2. What ports cleanly vs. needs rework
 
-- **`Bpod_Gen2`** is the MATLAB side. You build a trial as a declarative state
-  matrix with `NewStateMachine` + `AddState` (see
-  `Functions/State Machine Assembler/AddState.m`), e.g.:
-
-  ```matlab
-  sma = AddState(sma, 'Name', 'WaitForResponse', ...
-      'Timer', S.GUI.ResponseTime, ...
-      'StateChangeConditions', {'Port1In', leftPokeAction, 'Port3In', rightPokeAction, 'Tup', 'TimeOutState'}, ...
-      'OutputActions', stimulusOutput);
-  ```
-
-  You then `SendStateMachine` to the device and `RunStateMachine` (or use
-  `BpodTrialManager`). When the trial ends you get the raw events back, run
-  whatever MATLAB you like, build the **next** trial's matrix, and send it. This
-  is the `Light2AFC_TrialManager.m` pattern in the Examples folder, and it is
-  structurally identical to your `pFSM` + `choose_next_goal` loop.
-
-- **`Bpod_StateMachine_Firmware`** is the real-time core. Confirmed from
-  `StateMachineFirmware.ino`: the hardware timer period is
-  `timerPeriod = 100` µs (a 10 kHz state-machine refresh), and `MaxStates` is
-  128 or 256 depending on board. So state timing is deterministic to ~100 µs,
-  independent of the PC, the OS scheduler, or USB latency. That is the concrete
-  real-time guarantee your current MATLAB-timer + serial-round-trip model cannot
-  give.
-
-- **Expressiveness beyond plain states.** Bpod is not "just" an FSM; the matrix
-  also supports:
-  - **Global Timers** — independent timers (with onset delay + duration) that can
-    fire transitions and drive outputs across multiple states. Per-trial
-    randomized durations are loaded from MATLAB. This is how you replace your
-    `@()exprnd(...)` reward-hold and odor timers.
-  - **Global Counters** — count events (e.g. N pokes / N bearing contacts) and
-    transition on a threshold.
-  - **Conditions** — test the *current* level of an input at state entry
-    (`SetCondition(sma, 1, 'Port1', 0)`). This is the direct replacement for your
-    `IRQ`/`GPQ` "what is the beam/bearing state right now" queries in
-    `pFSMSub_volHead.m`.
-  - **SoftCodes** — the FSM can emit a byte mid-trial that triggers a PC-side
-    MATLAB function (`SoftCodeHandler`), and the PC can send a byte back to force
-    a transition. This is the escape hatch for genuinely adaptive mid-trial
-    computation — at the cost of one USB round-trip for that one transition.
-
----
-
-## 4. Migration mapping (your concepts → Bpod)
-
-| Current system | Bpod equivalent | Difficulty |
+| Current concept | Bpod equivalent | Effort |
 |---|---|---|
-| `choose_next_goal`, `debias2target`, `binomialPrediction`, alternation/adversarial scheduling | Plain MATLAB in the trial loop, between `getTrialData` and the next `SendStateMachine`. **Ports almost verbatim.** | Low |
-| `pFSM_*` within-trial state strings + `moveto` | `NewStateMachine`/`AddState` declarative matrix, rebuilt each trial | Medium (rewrite, not redesign) |
-| `startTup`/`TUP` MATLAB timers | State `Timer` + `'Tup'` transitions; multi-state timing via Global Timers | Low |
-| Random hold interval `@()exprnd(3)+1` | Draw the value in MATLAB *before* the trial, load it into a state/Global Timer | Low |
-| `IRQ`/`GPQ` live-state queries | `SetCondition` on the relevant input line | Low |
-| Olfactometer object status branching mid-trial | Global Timer for odor/flush windows; or SoftCode round-trip if a true mid-trial decision is needed | Medium |
-| `IRB` nose-poke beams | Behavior **Port** inputs (`Port1In`/`Out`) | Low (hardware re-wire) |
-| Doors via `GPO` GPIO | BNC / wire / valve-driver digital outputs | Low |
-| Bearing-contact sensing (custom `bearing_switch` PCB) | Stays custom hardware; emit TTL into a Bpod BNC/wire **input** | Low |
-| Tone synthesis `TON`/`MOD` (volume + sample-rate control) | Bpod **HiFi module** or **Analog Output module** | Medium (hardware + re-auth of sounds) |
-| Olfactometer manifold drive `OLF` | **Valve driver module** + your existing manifold, or a small custom Bpod serial module | Medium |
-| `controllerGUI.m` (1166 lines) | Bpod Console + `BpodParameterGUI` + `LiveOutcomePlot`/`PokesPlot` + your custom plots | Medium–High |
-| Per-10-trial `autoSaveTrial` | `SaveBpodSessionData` (standard `BpodSystem.Data` format) | Low |
-
-The headline: the FSM rewrite is mechanical, the scheduling brain survives, and
-the friction is concentrated in (a) mid-trial adaptivity and (b) replacing the
-GUI.
+| `choose_next_goal`, `debias2target`, `binomialPrediction`, alternation/adversarial scheduling | Plain MATLAB in the trial loop, between trials. **Near-verbatim.** | Low |
+| `pFSM_*` within-trial state strings + `moveto` | Declarative `NewStateMachine`/`AddState` matrix, rebuilt per trial | Medium (rewrite) |
+| `startTup`/`TUP` timers, random hold draws | State `Timer` + Global Timers; draw randoms in MATLAB *before* the trial | Low |
+| `IRQ`/`GPQ` live-state queries | **Conditions** (test an input's current level at state entry) | Low |
+| `pFSMSub_volHead` reusable sub-FSM | State-block **builder function** (§5) | Medium |
+| `controllerGUI.m` (1166 lines) | `BpodParameterGUI` + plot plugins; custom figure if needed (§5) | Medium–High |
+| Bearing sensing, olfactometer (custom HW) | Stay custom; interface via TTL / a Bpod module (§4) | Low–Medium |
+| Tone synth `TON`/`MOD` | HiFi / Analog Output / DDS module | Medium |
+| `autoSaveTrial` | `SaveBpodSessionData` (standard `BpodSystem.Data`) | Low |
 
 ---
 
-## 5. The honest downsides / risks
+## 3. Real-time & mid-trial control (the crux)
 
-1. **It's a real port, ~9,500 lines of mature MATLAB.** The cross-trial logic
-   moves cleanly, but every `pFSM_*` within-trial flow must be re-expressed as a
-   state matrix, and the GUI is effectively rebuilt on Bpod's console + plugins.
-   Budget months, not weeks, and plan to run old and new in parallel during
-   validation.
+Once a trial's state machine is running on-device, **its parameters are frozen** —
+you can't mutate a MATLAB variable to change the trial in flight (which you can
+today, because your FSM *is* MATLAB). That freedom is what you trade for
+deterministic timing. Four mechanisms recover mid-trial adaptivity; only the last
+costs the real-time guarantee:
 
-2. **You lose "arbitrary MATLAB in the middle of a trial."** Today this is free;
-   on Bpod each such moment becomes a Global Timer/Counter/Condition (fine, and
-   usually *cleaner*) or a SoftCode round-trip (which re-introduces exactly the
-   USB latency Bpod is avoiding). You only pay that latency where you genuinely
-   need mid-trial PC computation — not on every transition as you do now — but
-   the patterns in `pFSMSub_volHead.m` will need careful refactoring rather than
-   a line-by-line translation.
+- **A — Pre-bake.** Compute before sending, encode as structure. Random
+  reward-hold intervals (`exprnd`, `numRewHold`) → pre-draw N values, emit a chain
+  of reward states.
+- **B — On-device primitives (real-time).** *Global Timers* (with `LoopMode` for
+  repeating outputs), *Global Counters* (count events → threshold transition),
+  *Conditions* (test an input level). "Reward until the animal leaves" = a reward
+  loop gated by a Condition on the bearing line.
+- **C — Per-state serial messages to modules (real-time).** Your `MOD`
+  volume/sample-rate changes per sub-state → serial messages fired to the sound
+  module on state entry (`OutputActions', {'HiFi1', msgIdx}`). The module
+  reconfigures itself at the state boundary.
+- **D — SoftCodes (MATLAB-in-the-loop, ~1–2 ms USB latency).** A state emits
+  `{'SoftCode', N}` → your `SoftCodeHandlerFunction(N)` runs arbitrary MATLAB and
+  can send a byte back (`SendBpodSoftCode`) to steer the running trial. The
+  escape hatch — used only where you truly need it.
 
-3. **Custom hardware stays custom.** Bpod replaces the *base station and timing
-   core*, not your differentiated hardware. The olfactometer and the
-   bearing-contact detection remain your designs; they interface to Bpod via TTL
-   inputs / a valve module / a small custom serial module. So "buy not build"
-   applies to the controller and the standard I/O, not the whole rig.
+**Key limitation:** transitions are driven by **events** (an edge on one input)
+or **Conditions** (the level of *one* input). There is **no native single
+transition gated on a multi-input AND** ("line1 high AND line2 low"). To match a
+multi-line pattern you chain Conditions across a couple of states. So encode
+each meaningful hardware state as **one signal/event**, not a multi-bit code.
 
-4. **The parallel model is different.** Bpod uses a global `BpodSystem` object,
-   so the clean way to run 10 rigs is **one MATLAB instance per Bpod** (each on
-   its own USB port), rather than one orchestrator multiplexing all cages the way
-   your `pdispatch` "panels/coordinator" code was heading. This is actually *more
-   robust* for a 10-cage farm (one rig crashing doesn't take down the others),
-   but it means 10 MATLAB sessions to launch/monitor and a MATLAB licensing plan
-   (multiple sessions on one machine share a seat; spreading across machines
-   needs concurrent/networked licenses).
+A state's `StateChangeConditions` is a **prioritized list**, with `Tup` (a
+`Timer 0` fires immediately) as the natural "else":
 
-5. **Cost scales linearly with rigs.** A Bpod State Machine r2 is a few hundred
-   USD each, plus per-rig modules (HiFi/analog-out for tones, valve driver, port
-   modules). For 10 rigs this is a real line item — but it is the "buy" you asked
-   for, and it is far less of your time than building 10 mega-base-stations.
+```matlab
+sma = SetCondition(sma, 1, 'BNC1', 1);   % olfactometer "odor" line high
+sma = SetCondition(sma, 2, 'BNC2', 1);   % olfactometer "flush" line high
+sma = AddState(sma, 'Name','CheckOdor', 'Timer',0, ...
+    'StateChangeConditions', {'Condition1','StateA', ... % if odor  -> A
+                              'Condition2','StateB', ... % elif flush -> B
+                              'Tup','WaitMore'}, ...      % else -> default
+    'OutputActions', {});
+```
 
-6. **Bpod gives you the FSM core, not cage management.** Animal ID/RFID,
-   scheduling, water logging, and home-cage gating are not provided out of the
-   box by Bpod any more than by your current system — that orchestration layer is
-   custom either way. Your voluntary head-fixation paradigm is inherently
-   self-initiated, which is the hard half of semi-automation; the rest is
-   integration work you'd own regardless of platform.
-
----
-
-## 6. The upsides, weighed against your goals
-
-- **Real-time control (your #1 motivation):** deterministic 100 µs state timing
-  on-device vs. MATLAB-timer + serial-round-trip jitter today. This directly
-  improves head-fixation hold-duration precision and odor onset/offset timing.
-  Clear win.
-- **Buy not build (your #2 motivation):** the controller and standard I/O are
-  off-the-shelf and maintained. You stop maintaining base-station firmware and
-  PCBs for the generic parts.
-- **Your scheduling IP is preserved.** The genuinely novel, hard-won code
-  (`binomialPrediction`, debiasing, adversarial/alternation control) is exactly
-  the part Bpod expects to live in MATLAB and carries over with minimal change.
-- **Ecosystem:** maintained software, a standard data format (`BpodSystem.Data`),
-  reusable plugins (ParameterGUI, PokesPlot, LiveOutcomePlot, Notebook), example
-  protocols, and a user community/forum.
-- **Per-rig isolation aids a 10-cage farm's reliability and debuggability.**
+This directly replaces your "query the olfactometer on entry and branch" pattern.
+(5–20 Conditions available depending on board; e.g. 16 on the r2-class.)
 
 ---
 
-## 7. Alternatives worth a moment's thought
+## 4. Hardware integration
 
-- **Hybrid:** adopt Bpod only for the real-time FSM core and keep your
-  olfactometer + bearing hardware, interfaced over TTL/serial. This is in fact
-  the *expected* Bpod deployment and is what the pilot would build.
-- **Stay and harden:** move your own within-trial FSM down onto the
-  microcontroller (i.e. re-implement the real-time core yourself). This gets you
-  the timing win without buying Bpod, but it is precisely the build-and-maintain
-  burden you're trying to escape — so it only makes sense if your hardware is too
-  specialized to interface to Bpod, which it does not appear to be.
-- **PyBpod (Python):** if you ever want off MATLAB, Bpod has a Python client.
-  MATLAB is the mainline and better documented; only worth it if leaving MATLAB
-  is itself a goal.
+**Olfactometer → make it a UART Bpod module.** It already speaks packets; reframe
+to Bpod's module protocol. Commands (odor/air/flush) go out as serial messages in
+a state's `OutputActions`; **state changes come back as module event bytes**
+(`Olfactometer1` = odor-on, `2` = odor-off, `3` = flush…). This turns your
+current *poll* into an event *push* — more real-time and idiomatic. Its ~4 states
+(no-odor / odor / air / flush) each map to one event, so no AND-decoding (§3).
+Bpod module ports are **UART, not I2C** — speak UART, or bridge an I2C device via
+the I2C Messenger module. (Your original firmware drives valves over a
+daisy-chained **DRV8860 shift-register** bus and uses **I2C only for ScanImage
+sync**, not valve addressing — worth preserving that separation.)
+
+**Bearing sensing → stays custom.** Your `bearing_switch` Arduino keeps doing
+detection + debounce and emits TTL into a Bpod BNC/Wire/Flex input, or becomes a
+small UART module.
+
+**Bearing bypass** (was adjustable on the go): let a state accept the real
+bearing signal **OR** a bypass, both routed to the same target —
+`{'BNC1High','Engaged', 'SoftCode1','Engaged'}`. The bypass is either a custom
+**GUI button** (its callback calls `SendBpodSoftCode`, so the running FSM reacts
+to the click) or an **OR'd hardware input** (`'Wire1High','Engaged'`).
+
+**Debounce** (was adjustable on the go): lives in the input device, never the
+FSM. Change it any time with a config command PC → device — independent of the
+running matrix, so it stays freely adjustable mid-session.
+
+**Low-level offloading generally:** things you don't want in the FSM —
+debounce (device config), LED flashing (a looping Global Timer on a PWM channel,
+`SendEvents=0`), tone/stimulus generation (a module that synthesizes from one
+trigger). The state matrix stays high-level trial logic.
 
 ---
 
-## 8. Suggested validation plan (de-risk before committing 10 rigs)
+## 5. Composition, GUI & parameters
 
-1. **Buy one** Bpod State Machine r2 + a HiFi (or analog output) module + a valve
-   driver.
-2. **Port the simplest protocol first** — `pFSM_train_poke` or
-   `pFSM_passive_fixation` — using the `BpodTrialManager` example as the
-   skeleton.
-3. **Wire the bearing-contact sensor TTL into a Bpod input** and confirm the
-   `volHead0/1/2` detection logic reproduces using States + Conditions + Global
-   Timers (no SoftCodes yet).
-4. **Measure odor onset/offset and hold-duration timing** against your current
-   rig; this is the quantitative justification for the whole move.
-5. **Port `choose_next_goal`** into the trial loop unchanged and confirm the
-   sequencing/debiasing behaves identically (it should — same MATLAB).
-6. **Only then** decide on mid-trial cases that need SoftCodes, the GUI
-   replacement, and the 10-rig rollout (instances, licensing, monitoring).
+**Reusable sub-protocols (your `pFSMSub_volHead` pattern).** A Bpod state machine
+is assembled data, so composition happens at build time via a **builder
+function** that appends a parameterized block of states:
 
-If steps 3–5 pass cleanly — and based on the code they should — the migration is
-justified and the remaining work is largely mechanical replication across rigs.
+```matlab
+function sma = AddVolHead(sma, S, exitState)  % S.stage, S.holdDur ... from the GUI
+```
+
+Any protocol calls `AddVolHead(sma, S, 'ResponsePeriod')` — reuse +
+parameterization + a return target, mirroring your `(stage, holdDur, exitStates)`
+signature. Caveats: state names are global to the matrix (prefix them, e.g.
+`VH_*`); all states share the `MaxStates = 256` budget. The `>back` op gives a
+single-level "return to caller" for shared re-entry states; and you can wrap the
+block in a class (like your `odorEvt`) so state-building *and* data-parsing live
+in one object, as Bpod's own plugins do.
+
+**Custom GUI + live parameters.** `BpodParameterGUI` auto-builds a panel from an
+`S.GUI` struct (styles: edit / text / checkbox / popupmenu / pushbutton; grouped
+by `S.GUIPanels`) — the declarative equivalent of your `makeTaskUIelements` /
+`UIdata`. Each trial you call `S = BpodParameterGUI('sync', S)`, which is
+**bidirectional**: experimenter edits are pulled into `S`, and values your code
+changes (performance-driven, e.g. debiasing) are pushed back onto the display —
+exactly your `updateUIvalues` write-back. Your adaptive apparatus moves into this
+between-trials step untouched. Bonus: `BpodSystem.Data.TrialSettings(t) = S` logs
+the parameter set per trial automatically; the launch manager gives per-subject
+presets. For rich dashboard chrome beyond ParameterGUI, you build a normal
+`uifigure` (as you do now) and store handles in `BpodSystem.GUIHandles`.
+
+Action buttons (`nextTrial`, `openAllDoors`, `userResetPoke`) → pushbutton params
+whose callbacks set a flag or `SendBpodSoftCode`.
+
+---
+
+## 6. Scaling to ~10 cages
+
+Bpod uses a global `BpodSystem` object, so the clean model is **one state machine
++ one MATLAB instance per cage** — *more robust* for a farm (one rig crashing
+doesn't take the others down) but means 10 sessions to launch/monitor and a
+MATLAB licensing plan (multiple sessions per machine share a seat; across
+machines you need concurrent/networked licenses). Cost scales ~linearly: a State
+Machine (r2 or 2+) plus per-rig modules (sound, valve driver, port/analog). This
+is the "buy" you asked for.
+
+**Ports are not the ceiling.** The State Machine 2+ has 3 module + 5 behavior
+ports + 4 Flex I/O + 2 BNC (r2 is the inverse: 5 module / 4 behavior). Module
+ports are **serial buses** (~15 events each; `MaxStates` 256), so per-box poke
+count expands via the **Port Array Module** (8 pokes/valves/LEDs per port) or a
+custom serial module — e.g. your `mega_base_station` reframed. Topology is a
+**star, not a daisy-chain**: each module port is a point-to-point UART to one
+module. To exceed the port count, use the **I2C Messenger** (one port → I2C bus,
+≤256 targets) or additional state machines — which the one-per-cage design gives
+you anyway.
+
+---
+
+## 7. Downsides / risks
+
+1. **Real port, ~9,500 lines.** Cross-trial logic moves cleanly; every
+   within-trial `pFSM_*` flow becomes a state matrix; the GUI is largely rebuilt.
+   Run old and new in parallel during validation.
+2. **No arbitrary mid-trial MATLAB.** Concentrated in the head-fixation module
+   (§3). Most decomposes into A/B/C; the rest becomes SoftCode round-trips — the
+   least mechanical, highest-risk part of the port. **Prototype this first.**
+3. **Custom hardware stays custom.** Bpod replaces the base station + timing
+   core, not your olfactometer / bearing sensing (they interface via TTL/module).
+4. **Dashboard chrome isn't free.** Live hardware-state indicators are handled via
+   Bpod's console + plot plugins or a custom figure, not ParameterGUI.
+
+Upsides: deterministic 100 µs timing; maintained ecosystem + standard data
+format; your scheduling IP preserved; per-rig isolation for the farm.
+
+---
+
+## 8. Validation plan (de-risk before 10 rigs)
+
+1. Buy one State Machine + a HiFi/analog module + valve driver.
+2. Port `pFSM_train_poke` / `pFSM_passive_fixation` using the `BpodTrialManager`
+   example as the skeleton.
+3. Wire the bearing sensor TTL into a Bpod input; reproduce `volHead0/1/2` with
+   States + Conditions + Global Timers (no SoftCodes yet).
+4. **Measure odor + hold-duration timing** vs. the current rig — the quantitative
+   justification for the whole move.
+5. Port `choose_next_goal` into the trial loop unchanged; confirm identical
+   sequencing.
+6. Only then tackle SoftCode mid-trial cases, the GUI, and the 10-rig rollout.
 
 ---
 
 ## Sources
 
-- Bpod source already in this workspace: `Bpod_Gen2/Functions/State Machine
-  Assembler/AddState.m`, `Bpod_Gen2/Examples/Protocols/Light/Light2AFC_TrialManager/Light2AFC_TrialManager.m`,
-  `Bpod_StateMachine_Firmware/Dev/StateMachineFirmware/StateMachineFirmware.ino`
-  (confirmed `timerPeriod = 100` µs, `MaxStates` 128/256).
-- [Bpod Wiki](https://sanworks.github.io/Bpod_Wiki/) and
-  [Running a state machine / BpodTrialManager](https://sanworks.github.io/Bpod_Wiki/function-reference/running-statemachine/).
-- [Sanworks forum: running Bpod in parallel to another MATLAB process](https://www.sanworks.io/forum/printthread.php?tid=657).
-- [Bpod State Machine r2 product page](https://sanworks.io/shop/viewproduct?productID=1024).
-- This repository's own code: `software/pc_software/pdispatch.m`,
-  `pFSM_NAFC.m`, `pFSMSub_volHead.m`, `startTup.m`, `psendPacket.m`,
-  `moveto.m`, `pprocessInput.m`.
+- Cloned Bpod source: `Bpod_Gen2` — `Functions/State Machine Assembler/`
+  (`AddState.m`, `SetGlobalTimer.m`, `SetCondition.m`),
+  `Functions/Plugins/BpodParameterGUI.m`, `Functions/SendBpodSoftCode.m`,
+  `Functions/Modules/PortArray/PortArrayModule.m`,
+  `Functions/Modules/I2C Messenger/`,
+  `Examples/Protocols/Light/Light2AFC_TrialManager/`.
+- Firmware: `Bpod_StateMachine_Firmware/Dev/StateMachineFirmware/StateMachineFirmware.ino`
+  (`timerPeriod = 100` µs; `MaxStates` 128/256; `InputHW` channel maps for 2+/r2;
+  `nModuleEvents`; `MAX_CONDITIONS`/`MAX_GLOBAL_TIMERS`).
+- [Bpod Wiki](https://sanworks.github.io/Bpod_Wiki/),
+  [Running a state machine / TrialManager](https://sanworks.github.io/Bpod_Wiki/function-reference/running-statemachine/),
+  [forum: Bpod in parallel](https://www.sanworks.io/forum/printthread.php?tid=657).
+- This repo: `software/pc_software/` (`pdispatch.m`, `pFSM_NAFC.m`,
+  `pFSMSub_volHead.m`, `odorEvt.m`, `controllerGUI.m`) and
+  `software/odor_behavioural_control/odor_behavioural_control.ino` (DRV8860
+  valve bus + I2C ScanImage sync).
 </content>
-</invoke>
